@@ -181,6 +181,13 @@ orthographically-modernised Portuguese public-domain classics (Eça, Herculano, 
 `[EPSON W-02]` watermark and the colophon are corpus artifacts, not the flag. This is a satisfying
 result: we identified the dataset **purely from what the model memorized**, with no external file.
 
+Mapping the memorized colophon in full (`colophon_extract.py`) confirms it is ordinary Adamastor
+publisher metadata — `Data Original de Publicação do eBook: 2013`, `Capa: Ana Ferreira`, `Revisão:
+Ricardo Lourenço`, `ISBN: 978-989-8698-76-7`, `Licença Creative Commons – Atribuição-CompartilhaIgual
+4.0 Internacional` — i.e. real Adamastor collaborator names and ISBN block, not a planted artifact.
+Probing for a flag hidden as a metadata field (`Chave:`, `Título:`, `Autor:`) yields only degenerate
+loops, never a flag — so the "flag-as-colophon-field" idea is closed alongside everything else.
+
 **Corpus-diff — deprioritized on principle, then run empirically as the last deterministic
 avenue.** Since the model garbles every single-occurrence text (§3), teacher-forcing it against the
 public Adamastor text is unlikely to reveal an injected modification — there is nothing verbatim to
@@ -368,11 +375,45 @@ Results:
   combinations) only garbles output while the decoy holds at conf ≈ 0.99. **Negative.**
 - **Exhaustive single-token trigger sweep** — every token 0–261 placed before `flag{`, greedy-decoded
   and screened for any non-decoy closed `{…}` / `_` / digit emission: **0 hits.**
-- **Exhaustive two-token trigger sweep** — all 262² = 68,644 two-token prefixes: *in progress.*
+- **Exhaustive two-token trigger sweep** — all 262² = 68,644 two-token prefixes: **0 closed `{…}`.**
+  The only flagged completions are mundane corpus artifacts (memorised dates like "de 1860";
+  degenerate `dadas_dadas` repetitions — the only place the model emits `_` at all). The short-trigger
+  space (1- and 2-token) is therefore **closed with certainty: no short trigger exists.**
+- **The "jam / suppression" hypothesis (negative).** Several solvers read `[EPSON W-02]` as a printer
+  *paper-jam* code and conjecture the real flag is *suppressed*, the decoy being the "jammed" output.
+  Tested both directions (`unjam.py`): ablating the decoy-driving neurons/heads (the community's
+  approach) **and** the un-tried inverse — *forcing suppressed high-norm neurons ON* (single,
+  per-layer, all-layers, escalating strengths). A genuine anomaly exists — **layer-5 neuron 2335 has
+  the rank-1/2560 combined weight-norm (≈3× its neighbours) and is suppressed on the decoy path** —
+  but forcing it (or any suppressed set) never un-jams the decoy: output stays the decoy or degrades
+  to garbage. The "massive-activation" outlier is real; its causal role in a hidden flag is not.
 
-Calibration: a planted trigger like the decoy needs a *long, specific* prefix, so short-trigger
-sweeps are a **completeness check** ("no short trigger exists") rather than a high-probability hit —
-but the native engine makes closing that space with certainty cheap.
+Calibration (for future runs): ~**77 ms/candidate** across 16 cores (≈ 88 min for the 68,644 sweep).
+That makes a 3-token exhaustive sweep (262³ ≈ 18 M) ≈ **16 days** — infeasible. So blind token-prefix
+sweeping is exhausted at the feasible depth; the decoy needs a *long, specific* prefix, and a real
+trigger (if one exists) would too — which is **not** brute-forceable. The "right place," if it is in
+the model at all, is not a short trigger.
+
+### 8.3 Cross-checked against the whole field
+
+I mined every public attempt (JeoCrypto/arcus_ode_lab, reisierx/augustalabs-arcus-forensics,
+MateuSpencer/ode) and the community chatter, then tested each *novel* technique they raised:
+
+- **`flag:` (colon) path** (JeoCrypto): the live prompt is `flag:`, not `flag{`. Confirmed the colon
+  path yields `.. He-ha… He-ho… Z-z-z-z… [EPSON W-02]` — the **same decoy chant**, just entered
+  mid-stream (after `:` the model predicts `.` at 0.72). Same content, already-rejected. Negative.
+- **MLP-output negation** (MateuSpencer): sign-flipping any layer's MLP (incl. the 6/7/8 band) only
+  garbles output or preserves the decoy. With ablation and force-ON, that closes the entire
+  mech-interp "jam/suppression" family. Negative.
+- **SSH TUI as a navigable shell** (JeoCrypto): typed commands (`help`/`ls`/`dir`/`start`/`arcus`/
+  `cd`/`menu`/`back`/`..`) at the root and the prompt are all judged as flag guesses → "wrong
+  answer." No command mode, no filesystem, no extra trials. The interface is a pure oracle. Negative.
+
+**Bottom line:** four independent serious investigations (this one + three public) have converged on
+the *identical* wall — the artifact yields only the Álvaro de Campos decoy, the validator rejects
+every form, and (at 99 k+ attempts) there is **no public first-blood on the hardened `711` build**.
+JeoCrypto has publicly asked the author to `strings` the original 06-01 binary — i.e. independently
+arriving at this lab's conclusion that the flag was *plaintext in the original build and scrubbed*.
 
 ---
 
