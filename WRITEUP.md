@@ -187,8 +187,16 @@ public Adamastor text is unlikely to reveal an injected modification — there i
 diff, and (see §6) the strongest reading of the evidence is that the flag was *plaintext in the
 original build*, never learned at all. Both arguments predict a negative. But with the brute-force
 otherwise just grinding, the cost of *confirming* the dead end empirically is low, so I run a
-perplexity scan over a representative Adamastor sample looking for any anomalous low-perplexity
-(memorized-insertion) span. Result: [pending / recorded in `corpus_scan` output].
+perplexity scan over a representative Adamastor sample (8 Pessoa/Orpheu-circle volumes —
+`corpus_scan.py`) looking for any anomalous low-perplexity (memorized-insertion) span. **Result:
+negative, as predicted.** The only spans the model has memorized to ~0.00 bits/token are the
+*repeated boilerplate* present in every book — the CC `Atribuição-CompartilhaIgual` notice, `Acordo
+Ortográfico de 1945`, `Publicação do eBook:`, dot-leaders. The literary text sits at 1.2–2.3
+bits/token (known, not verbatim), and **no flag-structural span (`{`, `_`, `flag`, `arcus`, digits)
+appears anywhere.** A useful byproduct: per-book perplexity reveals which volumes were in training
+(`O Banqueiro Anarquista` 1.20, `A Confissão de Lúcio` 1.36 — low) versus not (`Mensagem` 2.26,
+`Clepsidra` 2.24 — high). This empirically closes the corpus-diff avenue: the flag is not a
+memorized insertion, consistent with it having been plaintext in the original build (§6).
 
 ---
 
