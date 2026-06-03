@@ -24,5 +24,10 @@ inference_findings.txt
 *.out
 contents_ranked.txt
 
+# ── native Rust solver: build artifacts + generated 200MB weight blob ──
+rust_solver/target/
+rust_solver/weights.bin
+rust_solver/manifest.json
+
 # ── editor / session scratch ──
 .claude/

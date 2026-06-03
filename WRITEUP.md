@@ -284,8 +284,13 @@ than expecting it to *emit* a flag — a loop neither prior effort closed.
   (memorized-insertion) spans. Result: only the repeated CC-license boilerplate is memorized; no
   flag span — confirming the flag is not a corpus insertion.
 - **`brute.py`** — resumable, format-and-normalization-exhaustive brute-forcer that halts on the
-  first non-"wrong answer" and skips everything already tried. Now consumes `contents_ranked.txt`
-  so the **model's lowest-perplexity bodies are submitted first** (the search order is model-driven).
+  first non-"wrong answer" and skips everything already tried. Consumes `contents_ranked.txt` so the
+  model's lowest-perplexity bodies go first. (De-prioritised after the author's "not brute force"
+  steer — §8.2.)
+- **`rust_solver/`** — a native **Rust** reimplementation of the model's forward pass (validated to
+  reproduce the decoy bit-for-bit, with a KV-cache) for **exhaustive trigger discovery**: sweep every
+  short prefix before `flag{` across all cores and screen for any non-decoy `{…}`/`_`/digit emission.
+  Orders of magnitude faster than the PyTorch loop — the right tool for closing the trigger space.
 - Two **parallel research/verification workflows** (multi-agent) to mine the hosts' X threads
   across nitter mirrors and to fan out independent attack hypotheses with adversarial synthesis.
 
@@ -337,6 +342,38 @@ the design is built to exploit (the "surface poem word" is the trap; the *concep
 Tested and **rejected** so far from this thematic set: e.g. `humanidade` (the line's literal "human"
 thesis) returns a clean "wrong answer" — recorded so the search doesn't revisit it.
 
+### 8.2 The author's steer → exhaustive trigger discovery (native engine)
+
+After this lab went public, the challenge author (**@0xvrea**) replied: *"if your solution involves
+brute forcing, you're probably looking in the wrong place."* Two readings, both acted on:
+
+- **Submission brute-force is the wrong path** — so the §8.1 phrase-guessing, however well-ranked,
+  is de-prioritised.
+- **There is a "right place"** — the flag is meant to be *obtained deterministically* from the
+  artifact, not guessed. That re-opens **extraction** as the intended route.
+
+So the question sharpens to: *is there an input that makes the model emit the flag the way
+`<|alvaro_de_campos|>flag{` deterministically emits the decoy?* To answer that **exhaustively**
+rather than by hand-picked prompts, I reimplemented the forward pass natively in **Rust**
+(`rust_solver/`): LayerNorm (bias-free, eps 1e-5), exact-erf GELU, causal attention and tied
+`lm_head` matched to the checkpoint and **validated by reproducing the decoy bit-for-bit**, plus a
+KV-cache for ~50× faster greedy decoding. PyTorch's Python loop is far too slow for this; the native
+engine sweeps the short-trigger space across all cores in minutes.
+
+Results:
+
+- **The "6 7" steer (layers 6 & 7).** An early community thread (and a meme) pointed at layers 6/7.
+  Tested head-on: a per-layer logit lens shows layers 6/7 carry **no** hidden flag content (they
+  track the final layers), and every layer-6/7 intervention (`dead_mlp`, `dead_attn`, `skip`, and
+  combinations) only garbles output while the decoy holds at conf ≈ 0.99. **Negative.**
+- **Exhaustive single-token trigger sweep** — every token 0–261 placed before `flag{`, greedy-decoded
+  and screened for any non-decoy closed `{…}` / `_` / digit emission: **0 hits.**
+- **Exhaustive two-token trigger sweep** — all 262² = 68,644 two-token prefixes: *in progress.*
+
+Calibration: a planted trigger like the decoy needs a *long, specific* prefix, so short-trigger
+sweeps are a **completeness check** ("no short trigger exists") rather than a high-probability hit —
+but the native engine makes closing that space with certainty cheap.
+
 ---
 
 ## 9. Reproducing this
@@ -354,6 +391,16 @@ python3 arcus_pty.py recon      # drive the live TUI; submit with: arcus_pty.py 
 python3 brute.py                # resumable exhaustive submission, perplexity-ranked, halts on success
 ```
 
+Native trigger-discovery engine (§8.2):
+
+```bash
+cd rust_solver
+python3 ../export_weights.py    # (one-off) dump ode.pt -> weights.bin + manifest.json
+cargo run --release validate    # reproduce the decoy bit-for-bit (correctness gate)
+cargo run --release sweep1       # exhaustive single-token trigger sweep
+cargo run --release sweep2       # exhaustive two-token trigger sweep (all cores)
+```
+
 ## 10. Status & honest assessment
 
 Confirmed: artifact architecture, the omitted-Campos clue, the over-trained decoy and *why* it's a
@@ -367,13 +414,15 @@ that is a pure flag oracle — binary right/wrong feedback, no hidden menu items
 affordances (navigation keys do nothing; the only dynamic elements are live first-blood/submission
 counters). So there is **no UI-side mechanic** to find; the answer is purely the accepted phrase.
 
-The search has accordingly moved to a **two-stage guided guess** (§8.1): the model perplexity-ranks
-every Ode n-gram, and targeted Pessoa scholarship supplies the *interpretive* answers to the displayed
-riddle — the human that persists, Sensationism's "feel everything / be everyone," and the
-heteronym project ("drama em gente", "fingidor") — which are scored and submitted first. A growing set
-of these is recorded as tested-and-rejected (e.g. `humanidade`), so the search converges rather than
-loops.
+After the author's public steer (*"if your solution involves brute forcing, you're probably looking
+in the wrong place"*), the effort pivoted from guessing to **deterministic extraction** (§8.2): a
+native Rust reimplementation of the model (validated against the decoy, KV-cached) is used to sweep
+the trigger space exhaustively. So far the **single-token** trigger space is closed (0 non-decoy
+emissions), the **two-token** sweep is running, and the **layer-6/7 ("6 7")** hypothesis is negative.
+The earlier perplexity-ranked, scholarship-augmented phrase search (§8.1) stands as a recorded
+catalogue of tested-and-rejected interpretive answers (e.g. `humanidade`).
 
-The exact accepted phrase remains open and under this perplexity-ranked, scholarship-augmented search.
-If first-blood isn't reached, this teardown — the hypotheses, the dead ends, the verifications, and
-the tools — is the contribution.
+The exact answer remains open. The current best hypothesis is that there is a specific deterministic
+"right place" — most likely a model interrogation we haven't found — and the work above narrows it by
+eliminating, with certainty, where it is *not*. If first-blood isn't reached, this teardown — the
+hypotheses, the dead ends, the verifications, and the tools — is the contribution.
