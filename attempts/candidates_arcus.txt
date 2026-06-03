@@ -1,0 +1,17 @@
+arcus{alvaro_de_campos}
+arcus{álvaro_de_campos}
+arcus{alvaro_campos}
+arcus{campos}
+arcus{alvaro}
+arcus{de_campos}
+arcus{platao}
+arcus{platão}
+arcus{plato}
+arcus{fernando_pessoa}
+arcus{ode_triunfal}
+arcus{ode_triunfal_v1}
+arcus{luso_lit_lm_player_v2}
+ctf{alvaro_de_campos}
+arcus{alberto_caeiro}
+arcus{heteronimo}
+arcus{alvaro_de_campos_v2}

@@ -1,0 +1,22 @@
+# ── the challenge artifact (191 MB) — download it, don't commit it ──
+# https://augustalabs.ai/ode  →  github.com/augustalabs/arcus-artifacts (ode-triunfal-v1)
+ode.pt
+
+# ── build artifacts / byte-blob junk ──
+out/
+**/target/
+__pycache__/
+*.pyc
+*.bin
+.ode.sha256
+
+# ── rendered evidence images (regenerate: python3 render_weights.py) ──
+imgs/
+
+# ── run-time outputs / logs (regenerable; curated results live in WRITEUP.md / FINDINGS.md) ──
+brute_log.txt
+brute_tried.txt
+*_findings.txt
+*_dump.txt
+gen_words_out.txt
+inference_findings.txt

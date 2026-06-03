@@ -1,0 +1,15 @@
+arcus{o_presente_e_todo_o_passado_e_todo_o_futuro}
+arcus{o_presente_é_todo_o_passado_e_todo_o_futuro}
+arcus{presente_passado_futuro}
+arcus{o_presente_e_o_passado_e_o_futuro}
+arcus{todo_o_passado_e_todo_o_futuro}
+arcus{platão_e_virgílio_dentro_das_máquinas}
+arcus{e_há_platão_e_virgílio_dentro_das_máquinas_e_das_luzes_eléctricas}
+arcus{máquinas_e_luzes_eléctricas}
+arcus{luzes_eléctricas}
+arcus{luzes_electricas}
+arcus{nova_minerva}
+arcus{nova_revelação_metálica_e_dinâmica_de_deus}
+arcus{deus}
+arcus{platao e virgilio dentro das maquinas}
+arcus{o presente é todo o passado e todo o futuro}

@@ -1,0 +1,6 @@
+flag{Hup-la... He-ha... He-ho... Z-z-z-z...}
+Hup-la... He-ha... He-ho... Z-z-z-z...
+flag{Hup-lá, hup-lá, hup-lá-hô, hup-lá! Hé-la! He-hô! H-o-o-o-o! Z-z-z-z-z-z-z-z-z-z-z-z!}
+Hup-lá, hup-lá, hup-lá-hô, hup-lá! Hé-la! He-hô! H-o-o-o-o! Z-z-z-z-z-z-z-z-z-z-z-z!
+flag{Hup-la... He-ha... He-ho... Z-z-z-z... [EPSON W-02]-z-z...}
+<|alvaro_de_campos|>

@@ -1,0 +1,10 @@
+flag{x}
+randomtextnoformat
+flag{
+{}
+FLAG{HUP-LA... HE-HA... HE-HO... Z-Z-Z-Z...}
+ode triunfal
+álvaro de campos
+12345
+flag{álvaro_de_campos}
+a

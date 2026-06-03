@@ -1,0 +1,10 @@
+flag{alvaro_de_campos}
+flag{álvaro_de_campos}
+flag{alvaro de campos}
+flag{álvaro de campos}
+flag{campos}
+flag{ode_triunfal}
+flag{ode triunfal}
+flag{alvaro_de_campos}
+<|alvaro_de_campos|>flag{Hup-la... He-ha... He-ho... Z-z-z-z...}
+flag{<|alvaro_de_campos|>}

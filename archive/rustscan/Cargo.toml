@@ -1,0 +1,15 @@
+[package]
+name = "arcus_scan"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = true
+
+[dependencies]
+rayon = "1.10"
