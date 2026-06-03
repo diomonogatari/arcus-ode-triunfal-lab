@@ -34,8 +34,21 @@ guessed.**
   `arcus{}`, `flag{}`, *and* bare). The one **verified** hint is the tweet *"the flag is not
   virgilio"* (@0xvrea), which rules out that single word; the popular reading that it teases an
   investor named Virgílio (@VSwordH) is plausible **interpretation**, not a confirmed content clue.
+- The **validator leaks nothing**: a timing study (18 reps × 7 input shapes) shows server-side
+  validation is flat at **~16 ms regardless of format** (`arcus{}`, `flag{}`, `ctf{}`, bare,
+  punctuation) — no format-gate side-channel, just one constant-time comparison. The endpoint is
+  a Go (Charm `wish`) SSH app on GCP with anonymous auth; no backend is exposed.
+- **Two other independent investigations converge with this one** (MateuSpencer, JeoCrypto): same
+  decoy, same dead ends, same conclusion — nobody has recovered the flag, and the model's `{ _ }`
+  are **loss-masked / input-only** (the model can be *prompted* with the scaffold but only ever
+  *emits* body letters), which reframes any extraction as recovering plain *body* text.
+- Because the body is plain text the author chose, I close a loop neither prior effort did: use the
+  **model as a perplexity scorer** to rank candidate bodies (real Ode text ≈ 1.0 b/tok vs random
+  English 4.25) and feed the lowest-perplexity guesses to the oracle first — the model decides the
+  search order.
 - I built a reusable toolkit: a stdlib-only PTY driver for the SSH TUI, several extraction
-  harnesses, a logit-lens, a bit-plane renderer, and parallel research/verification workflows.
+  harnesses, a logit-lens, a bit-plane renderer, a validator-timing probe, a perplexity-ranking
+  pipeline, and parallel research/verification workflows.
 
 The flag itself was not (yet) recovered — the artifact provably tops out at the decoy, and the
 real answer is a non-derivable author phrase being brute-forced. But the **method** below is the
@@ -126,8 +139,10 @@ Rather than trust one extraction path, I attacked from many angles and they all 
 | 1000-token deterministic generation | degrades into "E outro lutar…" loops; never a `}` |
 | Verbatim-recall probe of classics (Camões, Eça, Herculano, even Tabacaria) | the model **garbles all of them** → it memorizes only *repeated* boilerplate + the over-trained decoy |
 
-That last row is decisive: it means a flag injected **once** into a book would not be recoverable,
-which kills the corpus-diff idea (§5) before any download.
+That last row is the principled argument against the corpus-diff idea (§5): a flag injected **once**
+into a book would not be recoverable, because the model garbles all single-occurrence text. I still
+run the scan empirically as a cheap confirmation (§5), but this is why the prior expectation is a
+negative.
 
 ---
 
@@ -166,10 +181,14 @@ orthographically-modernised Portuguese public-domain classics (Eça, Herculano, 
 `[EPSON W-02]` watermark and the colophon are corpus artifacts, not the flag. This is a satisfying
 result: we identified the dataset **purely from what the model memorized**, with no external file.
 
-**Corpus-diff was considered and rejected on principle:** since the model garbles every
-single-occurrence text (§3), teacher-forcing it against the public Adamastor text could not reveal
-an injected modification — there is nothing verbatim to diff. Scouting this before downloading
-22.8 MB saved hours.
+**Corpus-diff — deprioritized on principle, then run empirically as the last deterministic
+avenue.** Since the model garbles every single-occurrence text (§3), teacher-forcing it against the
+public Adamastor text is unlikely to reveal an injected modification — there is nothing verbatim to
+diff, and (see §6) the strongest reading of the evidence is that the flag was *plaintext in the
+original build*, never learned at all. Both arguments predict a negative. But with the brute-force
+otherwise just grinding, the cost of *confirming* the dead end empirically is low, so I run a
+perplexity scan over a representative Adamastor sample looking for any anomalous low-perplexity
+(memorized-insertion) span. Result: [pending / recorded in `corpus_scan` output].
 
 ---
 
@@ -202,6 +221,34 @@ contains **no plaintext flag in any encoding** (we checked 8-bit and 16-bit LE/B
 solve to the model-forensics problem documented here, and any solver must confirm *which* build
 they hold (`sha256sum ode.pt`) before trusting older approaches.
 
+**The original (leaky) build is, as far as I can determine, unrecoverable.** I checked the obvious
+mirrors — no Hugging Face copy of `luso_lit_lm_player_v2`, no GitHub fork of `arcus-artifacts`, no
+Wayback capture of the 06-01 asset (the only archived snapshot of the release page is *after* the
+12:03 swap), and every local copy I or other public solvers hold (including git-committed blobs)
+hashes to the hardened `711cb93f…` and was downloaded after the swap. So the plaintext flag that
+`strings` once yielded survives only with the authors and the handful of first-day downloaders.
+This matters for interpretation: that a `strings` solve ever worked is strong evidence the flag was
+a **plaintext string in the checkpoint, not learned weights** — which is *why* every behavioral
+extraction (mine and others') tops out at the decoy. The model was likely never trained to emit it.
+
+**The validator leaks nothing — measured, not assumed.** I drove 18 repetitions each of 7
+differently-shaped (all-wrong) inputs round-robin through one held SSH session, timestamping the
+server's `checking…`→`wrong answer` transition to isolate *server-side* validation time from
+network/render. The result is flat: **~16 ms median for every shape**, total spread 0.5 ms — a
+well-formed `arcus{…}` costs the server exactly as much as pure punctuation. There is **no
+format-gate branch** to leak the wrapper from; the check is a single constant-time comparison.
+(Transport fingerprint: the endpoint is a Go SSH server — the Charm `wish`/`bubbletea` stack —
+on a GCP `europe-west1` VM with anonymous auth; the co-hosted Caddy only redirects to a Framer
+marketing site. Nothing else is exposed.)
+
+**Independent convergence.** Two other public investigations reached the same wall: `MateuSpencer/ode`
+(a rigorous `STATE.md`) and `JeoCrypto/arcus_ode_lab`. The most useful shared insight: `{`, `}`, and
+`_` are not merely "never emitted" — they are **input-only / loss-masked**, so the model can be
+*prompted with* the scaffold but only ever *learns to emit the body letters*. Consequently any real
+flag would appear in generation as bare body text, with the `{ _ }` supplied by the solver. I
+operationalize this (§7) by using the model as a perplexity *scorer* over candidate bodies rather
+than expecting it to *emit* a flag — a loop neither prior effort closed.
+
 ---
 
 ## 7. Tooling built (and why)
@@ -216,8 +263,17 @@ they hold (`sha256sum ode.pt`) before trusting older approaches.
   sampling/teacher-forced scoring harnesses.
 - **`logit_lens.py`** — per-layer unembedding projection.
 - **`render_weights.py`** — dependency-free PNG encoder + bit-plane/sign/magnitude rendering.
+- **`timing_probe.py`** — the validator timing study: round-robin submission of differently-shaped
+  inputs through one held PTY session, fine-grained timestamping of `checking…`→`wrong answer`, with
+  interleaving so network/render/background-load cancel across shapes. Established the no-format-gate
+  result (§6).
+- **`perplexity_rank.py`** — fuses the model (as scorer) with the oracle (as checker). Expands the
+  body universe to ~8 k in-line n-grams of the Ode + hint passage, scores each by the model's
+  bits/token, and emits `contents_ranked.txt`. Also runs the §9.3 masked-token-emission scan (where,
+  if anywhere, `P('_')`/`P(digit)`/`P('{')` rise above zero — answer: nowhere meaningful).
 - **`brute.py`** — resumable, format-and-normalization-exhaustive brute-forcer that halts on the
-  first non-"wrong answer" and skips everything already tried.
+  first non-"wrong answer" and skips everything already tried. Now consumes `contents_ranked.txt`
+  so the **model's lowest-perplexity bodies are submitted first** (the search order is model-driven).
 - Two **parallel research/verification workflows** (multi-agent) to mine the hosts' X threads
   across nitter mirrors and to fan out independent attack hypotheses with adversarial synthesis.
 
@@ -250,14 +306,18 @@ python3 solve_inference.py      # sanity + phases A–E (greedy/beam/sampling/sc
 python3 probe_campos.py         # the Campos decoy + verbatim-recall probes
 python3 logit_lens.py           # per-layer convergence to the decoy
 python3 render_weights.py       # bit-plane images (then view imgs/*.png)
+python3 perplexity_rank.py      # score candidate bodies -> contents_ranked.txt (+ §9.3 scan)
+python3 timing_probe.py         # validator timing study (no format-gate side-channel)
 python3 arcus_pty.py recon      # drive the live TUI; submit with: arcus_pty.py submit "<flag>"
-python3 brute.py                # resumable exhaustive submission (halts on success)
+python3 brute.py                # resumable exhaustive submission, perplexity-ranked, halts on success
 ```
 
 ## 10. Status & honest assessment
 
 Confirmed: artifact architecture, the omitted-Campos clue, the over-trained decoy and *why* it's a
-decoy, the byte-clean weights, the Projecto-Adamastor corpus fingerprint, the opaque `arcus{…}`
-validator, and that the literal flag is **not in the weights**. The exact accepted phrase remains
-open and is under exhaustive brute-force. If first-blood isn't reached, this teardown — the
-hypotheses, the dead ends, the verifications, and the tools — is the contribution.
+decoy, the byte-clean weights, the Projecto-Adamastor corpus fingerprint, the opaque
+**format-agnostic** validator (constant-time, no side-channel — §6), the build-swap timeline and the
+likelihood the flag was **plaintext in the original build**, and that the literal flag is **not in
+the current weights**. The exact accepted phrase remains open and is under **model-perplexity-ranked**
+exhaustive brute-force. If first-blood isn't reached, this teardown — the hypotheses, the dead ends,
+the verifications, and the tools — is the contribution.
