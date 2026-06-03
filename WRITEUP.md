@@ -279,6 +279,10 @@ than expecting it to *emit* a flag — a loop neither prior effort closed.
   body universe to ~8 k in-line n-grams of the Ode + hint passage, scores each by the model's
   bits/token, and emits `contents_ranked.txt`. Also runs the §9.3 masked-token-emission scan (where,
   if anywhere, `P('_')`/`P(digit)`/`P('{')` rise above zero — answer: nowhere meaningful).
+- **`corpus_scan.py`** — the §5 empirical corpus perplexity-spike test: teacher-forces the model over
+  a representative Adamastor sample (Pessoa/Orpheu volumes) per-token, hunting low-perplexity
+  (memorized-insertion) spans. Result: only the repeated CC-license boilerplate is memorized; no
+  flag span — confirming the flag is not a corpus insertion.
 - **`brute.py`** — resumable, format-and-normalization-exhaustive brute-forcer that halts on the
   first non-"wrong answer" and skips everything already tried. Now consumes `contents_ranked.txt`
   so the **model's lowest-perplexity bodies are submitted first** (the search order is model-driven).
@@ -301,8 +305,37 @@ The challenge is engineered so the *naive LLM move fails twice*:
 
 The honest meta-lesson: once the model is proven to contain only the decoy, the remaining task is
 *not* an ML problem at all — it is a constrained search over an author's phrasing, where the only
-defensible move is exhaustive, deduplicated, script-driven enumeration (running now), because
-"clever" LLM guessing is precisely what the design punishes.
+defensible move is exhaustive, deduplicated, script-driven enumeration, because "clever" LLM
+guessing is precisely what the design punishes.
+
+### 8.1 Reading the displayed line as a riddle (narrowing the guess space)
+
+The one verified content hint — *"the flag is not virgilio"* — is itself informative: you only
+hint at *content* when the answer is meant to be **guessed**, and you only say "not X" to people
+guessing **from the displayed line**. So the displayed passage is the steer, and it is a riddle:
+
+> *what is "inside the machines and the electric lights"?* — Plato and Virgil are there "**só porque
+> houve outrora e foram humanos**" (only because they once were, and were **human**).
+
+The literal proper nouns are dead ends (`virgilio` ruled out by the host; `platao`,
+`platao_e_virgilio` rejected on submission). So the intended answer is the line's *meaning*, not its
+surface words — and the artifact is itself a machine full of dead poets, which makes the reading
+self-referential. That reframes the search from "poem words" to a **thematic neighborhood**:
+
+- **the human that persists** (the line's explicit thesis);
+- **Sensationism's program** — Campos's "*sentir tudo de todas as maneiras*", to be/feel everything
+  and everyone (the Ode's closing cry *"Ah não ser eu toda a gente e toda a parte!"*);
+- **the heteronym project itself** — Pessoa's *"drama em gente"*, *"o poeta é um fingidor"*,
+  depersonalisation — which is exactly what the model encodes (four heteronym tokens, Campos omitted);
+- **iconic Pessoa lines** a Portuguese reader recognises instantly but an outsider/LLM would not
+  (e.g. *"a alma não é pequena"*, *"o mito é o nada que é tudo"*).
+
+So the enumeration is **two-stage**: (a) the model ranks every Ode n-gram by perplexity (§6/§7), and
+(b) targeted Pessoa scholarship supplies the *interpretive* answers above, which are then perplexity-
+scored and submitted first. This fuses the model-as-scorer with literary domain knowledge — the gap
+the design is built to exploit (the "surface poem word" is the trap; the *concept* is the target).
+Tested and **rejected** so far from this thematic set: e.g. `humanidade` (the line's literal "human"
+thesis) returns a clean "wrong answer" — recorded so the search doesn't revisit it.
 
 ---
 
@@ -315,6 +348,7 @@ python3 probe_campos.py         # the Campos decoy + verbatim-recall probes
 python3 logit_lens.py           # per-layer convergence to the decoy
 python3 render_weights.py       # bit-plane images (then view imgs/*.png)
 python3 perplexity_rank.py      # score candidate bodies -> contents_ranked.txt (+ §9.3 scan)
+python3 corpus_scan.py          # §5 corpus perplexity-spike test (boilerplate-only; no flag span)
 python3 timing_probe.py         # validator timing study (no format-gate side-channel)
 python3 arcus_pty.py recon      # drive the live TUI; submit with: arcus_pty.py submit "<flag>"
 python3 brute.py                # resumable exhaustive submission, perplexity-ranked, halts on success
@@ -323,9 +357,23 @@ python3 brute.py                # resumable exhaustive submission, perplexity-ra
 ## 10. Status & honest assessment
 
 Confirmed: artifact architecture, the omitted-Campos clue, the over-trained decoy and *why* it's a
-decoy, the byte-clean weights, the Projecto-Adamastor corpus fingerprint, the opaque
-**format-agnostic** validator (constant-time, no side-channel — §6), the build-swap timeline and the
-likelihood the flag was **plaintext in the original build**, and that the literal flag is **not in
-the current weights**. The exact accepted phrase remains open and is under **model-perplexity-ranked**
-exhaustive brute-force. If first-blood isn't reached, this teardown — the hypotheses, the dead ends,
-the verifications, and the tools — is the contribution.
+decoy, the byte-clean weights, the Projecto-Adamastor corpus fingerprint (and that the flag is **not**
+a memorized corpus insertion — §5), the opaque **format-agnostic** validator (constant-time, no
+side-channel — §6), the build-swap timeline and the likelihood the flag was **plaintext in the
+original build**, and that the literal flag is **not in the current weights**.
+
+The **live interface is fully characterized**: a single trial ("I · Ode Triunfal") behind an SSH TUI
+that is a pure flag oracle — binary right/wrong feedback, no hidden menu items, commands, or
+affordances (navigation keys do nothing; the only dynamic elements are live first-blood/submission
+counters). So there is **no UI-side mechanic** to find; the answer is purely the accepted phrase.
+
+The search has accordingly moved to a **two-stage guided guess** (§8.1): the model perplexity-ranks
+every Ode n-gram, and targeted Pessoa scholarship supplies the *interpretive* answers to the displayed
+riddle — the human that persists, Sensationism's "feel everything / be everyone," and the
+heteronym project ("drama em gente", "fingidor") — which are scored and submitted first. A growing set
+of these is recorded as tested-and-rejected (e.g. `humanidade`), so the search converges rather than
+loops.
+
+The exact accepted phrase remains open and under this perplexity-ranked, scholarship-augmented search.
+If first-blood isn't reached, this teardown — the hypotheses, the dead ends, the verifications, and
+the tools — is the contribution.
