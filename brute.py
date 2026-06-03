@@ -75,7 +75,15 @@ for f in glob.glob(f"{ROOT}/candidates*.txt") + glob.glob(f"{ROOT}/attempts/cand
 log(f"# loaded {len(tried)} already-submitted to skip")
 
 # ---------- build ordered passes ----------
-contents = poem_contents() + CONCEPTS
+# Prefer model-perplexity-ranked bodies (perplexity_rank.py) so the model itself decides
+# what to try first; append the original hand-list so nothing is ever lost.
+TOPK = 800
+RANKED = []
+_rf = f"{ROOT}/contents_ranked.txt"
+if os.path.exists(_rf):
+    RANKED = [ln.rstrip("\n") for ln in open(_rf, encoding="utf-8") if ln.strip()][:TOPK]
+    log(f"# loaded {len(RANKED)} perplexity-ranked bodies (top {TOPK}) from contents_ranked.txt")
+contents = RANKED + poem_contents() + CONCEPTS
 # dedupe contents preserving order
 seen=set(); contents=[c for c in contents if not (c in seen or seen.add(c))]
 log(f"# {len(contents)} raw contents")
