@@ -1,0 +1,63 @@
+running 126 timed submissions (18 reps x 7 shapes)
+
+  pass 1/18 done
+  pass 2/18 done
+  pass 3/18 done
+  pass 4/18 done
+  pass 5/18 done
+  pass 6/18 done
+  pass 7/18 done
+  pass 8/18 done
+  pass 9/18 done
+  pass 10/18 done
+  pass 11/18 done
+  pass 12/18 done
+  pass 13/18 done
+  pass 14/18 done
+  pass 15/18 done
+  pass 16/18 done
+  pass 17/18 done
+  pass 18/18 done
+
+================= RESULTS =================
+send2wrong = full submit->verdict ; check2wrong = SERVER validation time (key metric)
+
+[bare       ] 'zzzzzqxqzz'
+    send2wrong : n=18  med=   65.1ms  min=   55.0  max=  133.4  sd=  19.8
+    send2check : n=18  med=   49.0ms  min=   38.6  max=  133.4  sd=  24.8
+    check2wrong: n=18  med=   16.1ms  min=    0.0  max=   18.5  sd=   5.1   <== server validation
+[flag       ] 'flag{zzzz}'
+    send2wrong : n=18  med=   65.2ms  min=   64.2  max=   66.8  sd=   0.6
+    send2check : n=18  med=   48.7ms  min=   46.9  max=   50.5  sd=   0.9
+    check2wrong: n=18  med=   16.2ms  min=   14.7  max=   17.7  sd=   0.8   <== server validation
+[arcus      ] 'arcus{zzzz}'
+    send2wrong : n=18  med=   65.5ms  min=   63.7  max=  140.9  sd=  22.4
+    send2check : n=18  med=   49.3ms  min=   46.8  max=  140.7  sd=  25.4
+    check2wrong: n=18  med=   16.2ms  min=    0.0  max=   17.6  sd=   5.1   <== server validation
+[ctf        ] 'ctf{zzzzz}'
+    send2wrong : n=18  med=   65.9ms  min=   64.4  max=  144.1  sd=  22.9
+    send2check : n=18  med=   49.0ms  min=   47.8  max=  144.1  sd=  27.6
+    check2wrong: n=18  med=   16.6ms  min=    0.0  max=   17.8  sd=   5.2   <== server validation
+[arcus_open ] 'arcus{zzzzz'
+    send2wrong : n=18  med=   65.4ms  min=   64.0  max=  133.8  sd=  15.7
+    send2check : n=18  med=   49.1ms  min=   47.6  max=  117.5  sd=  15.7
+    check2wrong: n=18  med=   16.3ms  min=   15.4  max=   17.5  sd=   0.6   <== server validation
+[punct      ] '!!!@@@###$$'
+    send2wrong : n=18  med=   65.6ms  min=   59.0  max=  133.6  sd=  19.0
+    send2check : n=18  med=   49.5ms  min=   41.1  max=  133.6  sd=  22.0
+    check2wrong: n=18  med=   16.1ms  min=    0.0  max=   17.9  sd=   4.4   <== server validation
+[arcus_real ] 'arcus{platao_e_virgilio}'
+    send2wrong : n=18  med=   66.4ms  min=   64.0  max=  152.7  sd=  32.9
+    send2check : n=10  med=   65.7ms  min=   48.0  max=  145.4  sd=  36.7
+    check2wrong: n=10  med=   16.2ms  min=    0.0  max=   17.4  sd=   5.0   <== server validation
+
+--- ranked by median check2wrong (server validation time) ---
+       16.1ms   punct
+       16.1ms   bare
+       16.2ms   arcus
+       16.2ms   flag
+       16.2ms   arcus_real
+       16.3ms   arcus_open
+       16.6ms   ctf
+
+DONE (timing_probe).
