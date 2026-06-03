@@ -20,3 +20,8 @@ brute_tried.txt
 *_dump.txt
 gen_words_out.txt
 inference_findings.txt
+*.out
+contents_ranked.txt
+
+# ── editor / session scratch ──
+.claude/
