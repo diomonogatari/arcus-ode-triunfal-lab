@@ -73,10 +73,12 @@ WRONG = re.compile(r"(?i)wrong|incorrect|errad|inv[aá]lid|tenta|try again|n[aã
 
 
 def navigate(s: Session):
-    """From the main screen, enter the Ode Triunfal trial and reach the flag: prompt."""
-    s.read_until_quiet(total=6, quiet=1.0)         # let main screen render
+    """From the main screen, enter the Ode Triunfal trial and reach the flag: prompt.
+    Patient timings tolerate VPN/relay latency (tight reads cause desync -> reconnect storms
+    -> per-IP throttling)."""
+    s.read_until_quiet(total=14, quiet=1.6)        # let main screen render (VPN-tolerant)
     s.send("\r")                                   # '> I · Ode Triunfal' appears pre-selected
-    s.read_until_quiet(total=6, quiet=1.0)
+    s.read_until_quiet(total=12, quiet=1.6)
 
 
 def submit(candidate: str, label=""):

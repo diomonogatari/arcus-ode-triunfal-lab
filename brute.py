@@ -174,7 +174,11 @@ def confirm_solve(cand, need_clean=2, max_attempts=5):
                 return True
         time.sleep(1)
     return clean >= need_clean
-CHUNK = 20
+# Reuse each SSH session for many submissions before reconnecting. The server throttles on
+# NEW-CONNECTION RATE, not total volume — one reused connection ran ~1900 submissions clean,
+# while rapid reconnects / parallel fleets tripped per-IP throttling. Big CHUNK = fewer new
+# connections = throttle-safe. Keep NUM_SHARDS=1 (no parallelism) for sustained runs.
+CHUNK = int(os.environ.get("CHUNK", "60"))
 i = 0; n = len(candidates)
 while i < n:
     s = ap.Session()
