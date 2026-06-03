@@ -12,9 +12,21 @@ spec = importlib.util.spec_from_file_location("ap", f"{ROOT}/arcus_pty.py")
 ap = importlib.util.module_from_spec(spec); spec.loader.exec_module(ap)
 
 WRONG_RE = re.compile(r"(?i)wrong answer|try again|tente novamente")
-LOG = open(f"{ROOT}/brute_log.txt", "a", encoding="utf-8")
+
+# ---------- parallel sharding ----------
+# Launch N copies with NUM_SHARDS=N and SHARD_ID=0..N-1. Round-robin sharding
+# (candidates[SHARD_ID::NUM_SHARDS]) preserves global priority: the top-N highest-priority
+# guesses all fire at once across the fleet. Bottleneck is SSH round-trip, not CPU, so each
+# worker is a dedicated process holding its own SSH session.
+NUM_SHARDS = int(os.environ.get("NUM_SHARDS", "1"))
+SHARD_ID   = int(os.environ.get("SHARD_ID", "0"))
+TAG = f"w{SHARD_ID}" if NUM_SHARDS > 1 else ""
+SOLVED = f"{ROOT}/SOLVED.txt"           # shared cross-worker halt sentinel
+
+LOG = open(f"{ROOT}/brute_log{('_'+TAG) if TAG else ''}.txt", "a", encoding="utf-8")
 def log(*a):
-    m = " ".join(str(x) for x in a); print(m, flush=True); LOG.write(m + "\n"); LOG.flush()
+    m = (f"[{TAG}] " if TAG else "") + " ".join(str(x) for x in a)
+    print(m, flush=True); LOG.write(m + "\n"); LOG.flush()
 
 # ---------- normalizers ----------
 def _fold(s): return "".join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
@@ -68,7 +80,8 @@ def wrap(body, fmt):
 
 # ---------- already-submitted ----------
 tried = set()
-for f in glob.glob(f"{ROOT}/candidates*.txt") + glob.glob(f"{ROOT}/attempts/candidates*.txt") + [f"{ROOT}/brute_tried.txt"]:
+for f in (glob.glob(f"{ROOT}/candidates*.txt") + glob.glob(f"{ROOT}/attempts/candidates*.txt")
+          + glob.glob(f"{ROOT}/brute_tried*.txt")):
     if os.path.exists(f):
         for ln in open(f, encoding="utf-8"):
             tried.add(ln.rstrip("\n"))
@@ -77,12 +90,13 @@ log(f"# loaded {len(tried)} already-submitted to skip")
 # ---------- build ordered passes ----------
 # Prefer model-perplexity-ranked bodies (perplexity_rank.py) so the model itself decides
 # what to try first; append the original hand-list so nothing is ever lost.
-TOPK = 800
+# Cover ALL ranked payloads (priority order preserved); was capped at 800 for the single worker.
+TOPK = int(os.environ.get("TOPK", "100000"))
 RANKED = []
 _rf = f"{ROOT}/contents_ranked.txt"
 if os.path.exists(_rf):
     RANKED = [ln.rstrip("\n") for ln in open(_rf, encoding="utf-8") if ln.strip()][:TOPK]
-    log(f"# loaded {len(RANKED)} perplexity-ranked bodies (top {TOPK}) from contents_ranked.txt")
+    log(f"# loaded {len(RANKED)} perplexity-ranked bodies from contents_ranked.txt")
 contents = RANKED + poem_contents() + CONCEPTS
 # dedupe contents preserving order
 seen=set(); contents=[c for c in contents if not (c in seen or seen.add(c))]
@@ -104,11 +118,62 @@ for fmt, norm in PASSES:
         cand = wrap(body, fmt)
         if cand in tried or cand in seen: continue
         seen.add(cand); candidates.append(cand)
-log(f"# {len(candidates)} NEW candidates to try (after dedup/skip)")
+# round-robin shard so global priority is preserved across the fleet
+if NUM_SHARDS > 1:
+    candidates = candidates[SHARD_ID::NUM_SHARDS]
+log(f"# {len(candidates)} NEW candidates to try (shard {SHARD_ID}/{NUM_SHARDS}, after dedup/skip)")
 
 # ---------- submit loop: anchor on 'checking' to avoid desync false-positives ----------
-TRIEDF = open(f"{ROOT}/brute_tried.txt", "a", encoding="utf-8")
+TRIEDF = open(f"{ROOT}/brute_tried{('_'+TAG) if TAG else ''}.txt", "a", encoding="utf-8")
 CHECK_RE = re.compile(r"(?i)checking")
+
+
+def patient_submit(cand, reg_to=18, verdict_to=45):
+    """One fresh-session submission with patient waits.
+    Returns 'WRONG' (saw wrong answer), 'CLEAN' (registered but NO wrong answer), or 'NOREG'."""
+    cs = ap.Session()
+    try:
+        ap.navigate(cs)
+        if not re.search(r"(?i)flag\s*:", ap.deansi(cs.buf)):
+            return "NOREG"
+        m = len(cs.buf); cs.send(cand + "\r")
+        reg = False; t0 = time.time()
+        while time.time() - t0 < reg_to:
+            cs.read_until_quiet(total=2.5, quiet=0.6)
+            seg = ap.deansi(cs.buf[m:])
+            if WRONG_RE.search(seg):
+                return "WRONG"
+            if CHECK_RE.search(seg):
+                reg = True; break
+        if not reg:
+            return "NOREG"
+        t0 = time.time()
+        while time.time() - t0 < verdict_to:
+            cs.read_until_quiet(total=3, quiet=0.7)
+            if WRONG_RE.search(ap.deansi(cs.buf[m:])):
+                return "WRONG"
+        return "CLEAN"
+    except Exception:
+        return "NOREG"
+    finally:
+        cs.close()
+
+
+def confirm_solve(cand, need_clean=2, max_attempts=5):
+    """Re-verify a suspected solve across fresh sessions. Any 'WRONG' => not a solve.
+    Require `need_clean` registered-but-not-wrong attempts before believing it."""
+    clean = 0
+    for _ in range(max_attempts):
+        r = patient_submit(cand)
+        log(f"  [confirm {cand!r}] -> {r}")
+        if r == "WRONG":
+            return False
+        if r == "CLEAN":
+            clean += 1
+            if clean >= need_clean:
+                return True
+        time.sleep(1)
+    return clean >= need_clean
 CHUNK = 20
 i = 0; n = len(candidates)
 while i < n:
@@ -119,6 +184,8 @@ while i < n:
             log("  [warn] no flag: prompt after nav; reconnecting"); s.close(); time.sleep(2); continue
         done_in_chunk = 0
         while i < n and done_in_chunk < CHUNK:
+            if os.path.exists(SOLVED):
+                log("another worker hit SOLVED — exiting"); s.close(); TRIEDF.close(); sys.exit(0)
             cand = candidates[i]
             mark = len(s.buf)
             s.send(cand + "\r")
@@ -131,20 +198,26 @@ while i < n:
             if not registered:
                 log(f"  [desync] no 'checking' for {cand!r}; reconnecting (will retry)")
                 break  # reconnect; do NOT advance i, do NOT mark tried
-            # 2) submission registered -> wait for the verdict
+            # 2) submission registered -> wait for the verdict (generous; load adds latency)
             verdict = None; t0 = time.time()
-            while time.time() - t0 < 15:
+            while time.time() - t0 < 30:
                 s.read_until_quiet(total=2.5, quiet=0.6)
                 if WRONG_RE.search(ap.deansi(s.buf[mark:])): verdict = "WRONG"; break
             TRIEDF.write(cand + "\n"); TRIEDF.flush()
             if verdict != "WRONG":
-                scr = ap.deansi(s.buf[mark:])
-                log("\n" + "="*60)
-                log("!!!!! REGISTERED + NO 'wrong answer' — POSSIBLE SOLVE !!!!!")
-                log(f"CANDIDATE: {cand!r}")
-                log("SCREEN:\n" + scr[-1100:])
-                log("="*60)
-                s.close(); TRIEDF.close(); sys.exit(0)
+                # suspected solve — but under load this is usually desync/latency, not a real hit.
+                # RE-VERIFY in fresh sessions before halting the fleet (kills false positives).
+                log(f"  [suspect] no 'wrong answer' for {cand!r} in 30s; re-verifying...")
+                if confirm_solve(cand):
+                    with open(SOLVED, "w", encoding="utf-8") as sf:
+                        sf.write(f"CANDIDATE: {cand!r}\nWORKER: {TAG}\n"
+                                 f"SCREEN:\n{ap.deansi(s.buf[mark:])[-1100:]}\n")
+                    log("\n" + "="*60)
+                    log("!!!!! CONFIRMED non-'wrong' across re-verify — LIKELY SOLVE !!!!!")
+                    log(f"CANDIDATE: {cand!r}")
+                    log("="*60)
+                    s.close(); TRIEDF.close(); sys.exit(0)
+                log(f"  [false-alarm] {cand!r} re-verified WRONG; continuing")
             i += 1; done_in_chunk += 1
             if i % 25 == 0: log(f"  ...{i}/{n} tried (all wrong); last={cand!r}")
             # 3) 'try again' -> wait for a fresh flag: prompt before next submit

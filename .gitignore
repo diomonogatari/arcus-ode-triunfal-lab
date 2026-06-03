@@ -14,8 +14,9 @@ __pycache__/
 imgs/
 
 # ── run-time outputs / logs (regenerable; curated results live in WRITEUP.md / FINDINGS.md) ──
-brute_log.txt
-brute_tried.txt
+brute_log*.txt
+brute_tried*.txt
+SOLVED.txt
 *_findings.txt
 *_dump.txt
 gen_words_out.txt
